@@ -1,61 +1,64 @@
-# =================================================================
-# == FINAL, SCALABLE PHARMA JOB CHECKER SCRIPT V2.0              ==
-# =================================================================
+# =========================================================================
+# == FINAL, SCALABLE PHARMA JOB CHECKER SCRIPT V4.0 (Homepage Scraping)  ==
+# =========================================================================
 import requests
 from bs4 import BeautifulSoup
 import telegram
 import time
 import os
+import urllib3
+
+# Suppress only the single InsecureRequestWarning from a single call to verify=False
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- CONFIGURATION ---
-# Your secrets are loaded securely from GitHub Actions environment variables
 TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
 TELEGRAM_CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
 
-# Keywords to look for in any notice
-KEYWORDS = ['pharmacist', 'pharma', 'pharmacy', 'b.pharm', 'd.pharm', 'drug inspector']
+KEYWORDS = ['pharmacist', 'pharma', 'pharmacy', 'b.pharm', 'd.pharm', 'drug inspector', 'recruitment', 'vacancy', 'career']
 
-# --- YOUR CONTROL PANEL: ADD/REMOVE WEBSITES HERE ---
-# 'name': A friendly name for notifications.
-# 'url': The full URL of the recruitment/notices page.
-# 'base_url': The main domain, used to build full links if necessary.
-# 'find_all_selector': The HTML tag that usually contains each notice item (e.g., 'tr' for table rows, 'li' for list items).
+# --- YOUR CONTROL PANEL: UPDATED TO CHECK HOME PAGES ---
+# 'find_all_selector' is now 'a' to find ALL links on the page.
 SITES_TO_CHECK = [
     {
-        'name': 'PCI (Announcements)',
-        'url': 'https://www.pci.nic.in/Announcements.html',
+        'name': 'PCI Homepage',
+        'url': 'https://www.pci.nic.in/', # CHECKING HOMEPAGE
         'base_url': 'https://www.pci.nic.in',
-        'find_all_selector': 'li'
+        'find_all_selector': 'a', # Finds all links
+        'verify_ssl': True
     },
     {
-        'name': 'AIIMS Delhi (Recruitment)',
-        'url': 'https://www.aiims.edu/en/notices/recruitment/aiims-recruitment.html',
+        'name': 'AIIMS Delhi Homepage',
+        'url': 'https://www.aiims.edu/', # CHECKING HOMEPAGE
         'base_url': 'https://www.aiims.edu',
-        'find_all_selector': 'tr'
+        'find_all_selector': 'a', # Finds all links
+        'verify_ssl': True
     },
     {
-        'name': 'AIIMS Bhubaneswar',
-        'url': 'https://aiimsbhubaneswar.nic.in/advertisement/',
+        'name': 'AIIMS Bhubaneswar Homepage',
+        'url': 'https://aiimsbhubaneswar.nic.in/', # CHECKING HOMEPAGE
         'base_url': 'https://aiimsbhubaneswar.nic.in',
-        'find_all_selector': 'tr'
+        'find_all_selector': 'a', # Finds all links
+        'verify_ssl': True
     },
     {
-        'name': 'NIPER Guwahati',
-        'url': 'https://niperguwahati.ac.in/recruitment.php',
+        'name': 'NIPER Guwahati Homepage',
+        'url': 'https://niperguwahati.ac.in/', # CHECKING HOMEPAGE
         'base_url': 'https://niperguwahati.ac.in',
-        'find_all_selector': 'tr'
+        'find_all_selector': 'a', # Finds all links
+        'verify_ssl': True
     },
     {
-        'name': 'RRB Bhopal (Paramedical)',
-        'url': 'https://www.rrbbpl.nic.in/paramedical-cat.htm',
+        'name': 'RRB Bhopal Homepage',
+        'url': 'https://www.rrbbpl.nic.in/', # CHECKING HOMEPAGE
         'base_url': 'https://www.rrbbpl.nic.in',
-        'find_all_selector': 'tr'
+        'find_all_selector': 'a', # Finds all links
+        'verify_ssl': False # Special SSL fix for this site
     }
 ]
 # --- END OF CONFIGURATION ---
 
 def send_telegram_message(message):
-    """Sends a formatted message to your Telegram bot."""
     try:
         bot = telegram.Bot(token=TELEGRAM_TOKEN)
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message, parse_mode='HTML', disable_web_page_preview=True)
@@ -64,54 +67,55 @@ def send_telegram_message(message):
         print(f"  -> Error sending Telegram message: {e}")
 
 def check_site(site):
-    """Checks a single website for keywords and sends notifications."""
     print(f"\nChecking site: {site['name']} ({site['url']})")
     try:
-        response = requests.get(site['url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+        response = requests.get(site['url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=site['verify_ssl'])
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        notices = soup.find_all(site['find_all_selector'])
+        # This will now get every single link on the homepage
+        all_links = soup.find_all(site['find_all_selector'])
         
-        if not notices:
-            print("  -> No items found with the selector. The website structure might have changed.")
+        if not all_links:
+            print("  -> Could not find any links on the page.")
             return
 
         new_notices_found = 0
-        for notice in notices:
-            notice_text = notice.get_text().lower()
-            if any(keyword in notice_text for keyword in KEYWORDS):
-                link_tag = notice.find('a')
-                if link_tag and 'href' in link_tag.attrs:
+        for link_tag in all_links:
+            link_text = link_tag.get_text().lower()
+            
+            if any(keyword in link_text for keyword in KEYWORDS):
+                if 'href' in link_tag.attrs:
                     link = link_tag['href'].strip()
                     
+                    # Ignore empty links or simple anchor links
+                    if not link or link.startswith('#') or link.startswith('javascript:'):
+                        continue
+
                     if not link.startswith('http'):
                         link = f"{site['base_url'].strip('/')}/{link.lstrip('/')}"
                     
-                    # Note: This version will notify for all found items on every run.
-                    # Preventing duplicates requires a more complex setup to store sent links.
                     new_notices_found += 1
-                    title_text = ' '.join(notice.get_text().strip().split())
+                    title_text = ' '.join(link_tag.get_text().strip().split())
                     message = (f"🚨 <b>Pharma Alert from {site['name']}!</b>\n\n"
-                               f"<b>Title:</b> {title_text}\n"
-                               f"<b>Link:</b> <a href='{link}'>Click Here to View</a>")
+                               f"<b>Link Text:</b> {title_text}\n"
+                               f"<b>URL:</b> <a href='{link}'>Click Here to Check</a>")
                     send_telegram_message(message)
         
         if new_notices_found == 0:
-            print("  -> No notices found matching keywords.")
+            print("  -> No links found matching keywords.")
 
     except requests.exceptions.RequestException as e:
-        print(f"  -> Could not connect to the website: {e}")
+        print(f"  -> Could not connect or failed to check the website: {e}")
     except Exception as e:
-        print(f"  -> An error occurred while checking the site: {e}")
+        print(f"  -> An unexpected error occurred: {e}")
 
 def main():
-    """Main function to loop through all sites defined in the configuration."""
-    print("=========================================")
-    print("Starting Pan-India Pharma Job Check...")
+    print("=====================================================")
+    print("Starting Pan-India Pharma Job Check V4.0 (Homepage)")
     for site in SITES_TO_CHECK:
         check_site(site)
-    print("\n=========================================")
+    print("\n=====================================================")
     print("All sites checked. Script finished.")
 
 if __name__ == "__main__":
