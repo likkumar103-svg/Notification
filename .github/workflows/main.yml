@@ -1,10 +1,12 @@
-name: Pharma Job Checker
+name: Pharma Job Checker (24/7)
 
 on:
-  workflow_dispatch: # Allows you to run it manually from the Actions tab
+  # This allows you to run the workflow manually from the Actions tab
+  workflow_dispatch:
+
+  # This runs the workflow automatically on a schedule
   schedule:
-    # Runs every hour. You can change this.
-    # Use https://crontab.guru/ to help create schedules.
+    # Runs once every hour, on the hour. Operates 24/7.
     - cron: '0 * * * *'
 
 jobs:
@@ -27,6 +29,7 @@ jobs:
       
       - name: Run the scraper script
         env:
+          # These secrets are loaded from your repository settings
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python pharma_checker.py
