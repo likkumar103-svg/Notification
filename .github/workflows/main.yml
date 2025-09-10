@@ -1,12 +1,8 @@
-name: Pharma Job Checker (24/7)
+name: Pharma Job Checker (with Memory)
 
 on:
-  # This allows you to run the workflow manually from the Actions tab
   workflow_dispatch:
-
-  # This runs the workflow automatically on a schedule
   schedule:
-    # Runs once every hour, on the hour. Operates 24/7.
     - cron: '0 * * * *'
 
 jobs:
@@ -29,7 +25,15 @@ jobs:
       
       - name: Run the scraper script
         env:
-          # These secrets are loaded from your repository settings
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python pharma_checker.py
+
+      - name: Commit and push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add sent_notices.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update sent notices memory" && git push)
