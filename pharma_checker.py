@@ -7,8 +7,8 @@ import os
 
 # --- CONFIGURATION ---
 # Get secrets from GitHub Actions environment variables
-TELEGRAM_TOKEN = os.environ['7149380628:AAFGlN70NrDn-0vUgiM7l7pBJOMNbIZ-Bq0']
-TELEGRAM_CHAT_ID = os.environ['6042654512']
+TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
+TELEGRAM_CHAT_ID = os.environ['TELEGRAM_CHAT_ID']
 
 URL_TO_CHECK = 'https://aiimsbhubaneswar.nic.in/Recruitment_Notice.aspx'
 KEYWORDS = ['pharmacist', 'pharma', 'pharmacy']
