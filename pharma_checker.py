@@ -1,5 +1,5 @@
 # =========================================================================================
-# == FINAL, SCALABLE PHARMA JOB CHECKER SCRIPT V6.0 (Targeted Scraping & Error Alerts)   ==
+# == FINAL, SCALABLE PHARMA JOB CHECKER SCRIPT V6.2 (Single-Target Mode for PCI)         ==
 # =========================================================================================
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +8,7 @@ import json
 import urllib3
 from datetime import datetime
 
-# Suppress SSL warnings for specific sites
+# Suppress SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- CONFIGURATION ---
@@ -18,42 +18,14 @@ MEMORY_FILE = 'sent_notices.json'
 
 KEYWORDS = ['pharmacist', 'pharma', 'pharmacy', 'b.pharm', 'd.pharm', 'drug inspector', 'recruitment', 'vacancy', 'career']
 
-# --- YOUR CONTROL PANEL: UPDATED WITH SPECIFIC NOTICE PAGES ---
+# --- YOUR CONTROL PANEL: FOCUSED ON A SINGLE, CORRECT WEBSITE ---
 SITES_TO_CHECK = [
     { 
         'name': 'PCI (Circulars)',
-        'url': 'https://www.pci.nic.in/circulars.html', # Specific Page
-        'base_url': 'https://www.pci.nic.in',
-        'find_all_selector': 'li', # List items for PCI
+        'url': 'https://pci.gov.in/en/blog/?category=Circulars', # The only URL we are checking
+        'base_url': 'https://pci.gov.in',
+        'find_all_selector': 'div', # This page uses 'div' for its main post containers
         'verify_ssl': True 
-    },
-    { 
-        'name': 'AIIMS Delhi (Recruitment)',
-        'url': 'https://www.aiims.edu/en/recruitment-advertisements.html', # Specific Page
-        'base_url': 'https://www.aiims.edu',
-        'find_all_selector': 'tr', # Table rows for AIIMS Delhi
-        'verify_ssl': True
-    },
-    { 
-        'name': 'AIIMS Bhubaneswar (Whats New)',
-        'url': 'https://aiimsbhubaneswar.nic.in/whats-new/', # Specific Page
-        'base_url': 'https://aiimsbhubaneswar.nic.in',
-        'find_all_selector': 'div', # Divs for AIIMS Bhubaneswar
-        'verify_ssl': True
-    },
-    { 
-        'name': 'NIPER Guwahati (Recruitment)',
-        'url': 'https://niperguwahati.ac.in/recruitment/', # Specific Page
-        'base_url': 'https://niperguwahati.ac.in',
-        'find_all_selector': 'tr', # Table rows for NIPER
-        'verify_ssl': True
-    },
-    { 
-        'name': 'RRB Bhopal (Homepage)', # Keeping homepage as it's a portal for central notices
-        'url': 'https://www.rrbbpl.nic.in/',
-        'base_url': 'https://www.rrbbpl.nic.in',
-        'find_all_selector': 'a', # All links
-        'verify_ssl': False 
     }
 ]
 # --- END OF CONFIGURATION ---
@@ -89,7 +61,7 @@ def check_site(site, sent_notices):
     new_links_found = []
     try:
         response = requests.get(site['url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=20, verify=site['verify_ssl'])
-        response.raise_for_status() # This will trigger an exception for 4xx/5xx errors
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
         all_items = soup.find_all(site['find_all_selector'])
@@ -122,20 +94,19 @@ def check_site(site, sent_notices):
         if not new_links_found:
             print("  -> No new links found matching keywords.")
 
-    # --- NEW: ERROR HANDLING BLOCK WITH TELEGRAM ALERT ---
     except requests.exceptions.RequestException as e:
         print(f"  -> Site check failed: {e}")
         error_message = (f"⚠️ Site Error: {site['name']}!\n\n"
                          f"Could not connect to the website. The URL might be broken or the site is down.\n\n"
                          f"URL: {site['url']}\n"
                          f"Details: {e}")
-        send_telegram_message(error_message) # Send the special alert
+        send_telegram_message(error_message)
     
     return new_links_found
 
 def main():
     print("=====================================================")
-    print(f"Starting Job Check V6.0 at {datetime.now().isoformat()}")
+    print(f"Starting Job Check V6.2 (Single-Target) at {datetime.now().isoformat()}")
     sent_notices = load_sent_notices()
     all_new_links = []
     for site in SITES_TO_CHECK:
