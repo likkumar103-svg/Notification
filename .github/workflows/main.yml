@@ -11,7 +11,10 @@ jobs:
 
     steps:
       - name: Check out repository code
+        # We need to use the PAT here to be able to push back
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GH_PAT }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -29,11 +32,20 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python pharma_checker.py
 
-      - name: Commit and push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+      - name: Commit and push if there are changes
         run: |
+          # Configure git with the bot's identity
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Check if the memory file has been created or changed
           git add sent_notices.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update sent notices memory" && git push)
+          
+          # Only commit and push if there are actual changes
+          if ! git diff --staged --quiet; then
+            git commit -m "MEMORY: Update sent notices list"
+            git push
+            echo "Memory file was updated and pushed successfully."
+          else
+            echo "No new notices found. Memory file is unchanged."
+          fi
